@@ -1,403 +1,730 @@
+/**
+ * CPU-ALU-CACHE-RAM Simulation Logic
+ * Clean, modular, and optimized version.
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    createCacheBlocks();
-    createRAMBlocks();
-  });
-  
-  document.getElementById('ram-size').addEventListener('change', createRAMBlocks);
-       // --- HTML Üzerinden Elementleri Seçiyoruz ---
-  const statusText = document.getElementById('status');
-  const aluOps = document.getElementById('alu-ops');
+  // --- DOM Elements ---
+  const input1El = document.getElementById('input1');
+  const input2El = document.getElementById('input2');
   const operationSelect = document.getElementById('operation');
+  const cacheSizeSelect = document.getElementById('cache-size');
+  const ramSizeSelect = document.getElementById('ram-size');
   const policySelect = document.getElementById('cache-policy');
-  const cpu = document.getElementById('cpu');
-  const alu = document.getElementById('alu');
-  const cache = document.getElementById('cache');
-  const ram = document.getElementById('ram');
-  const cacheBlocks = document.querySelectorAll('.cache-blocks .block');
-  const ramBlocks = document.querySelectorAll('.ram-blocks .block');
   
-  //Sayı girdileri
-  document.getElementById('start-btn').addEventListener('click', () => {
-      const input1 = parseFloat(document.getElementById('input1').value);
-      const input2 = parseFloat(document.getElementById('input2').value);
-      const operation = document.getElementById('operation').value;
-      const cachePolicy = document.getElementById('cache-policy').value;
-    
-      let result;
-    
-      switch (operation) {
-        case 'ADD':
-          result = input1 + input2;
-          break;
-        case 'SUB':
-          result = input1 - input2;
-          break;
-        case 'MUL':
-          result = input1 * input2;
-          break;
-        case 'DIV':
-          result = input1 / input2;
-          break;
-        case 'AND':
-          result = input1 & input2;
-          break;
-        case 'OR':
-          result = input1 | input2;
-          break;
-        case 'NOT':
-          result = ~input1; // NOT sadece bir değer üzerinde çalışır
-          break;
-        default:
-          result = "Hatalı işlem!";
-      }
-    
-      // İşlem sonuçlarını gösterelim
-      document.getElementById('status').textContent = `CPU veriyi aldı: ${input1} ve ${input2}`;
-      setTimeout(() => {
-        document.getElementById('alu-ops').textContent = `ALU işlemi (${operation}): Sonuç = ${result}`;
-      }, 1000);
-    
-      setTimeout(() => {
-        document.getElementById('status').textContent = `Sonuç Cache (${cachePolicy}) ile işlendi: ${result}`;
-      }, 2000);
-    
-      setTimeout(() => {
-        document.getElementById('status').textContent = `Veri RAM'e yazıldı: ${result}`;
-      }, 3000);
-    });
+  const startBtn = document.getElementById('start-btn');
+  const autoBtn = document.getElementById('auto-btn');
+  const resetBtn = document.getElementById('reset-btn');
   
-  // Sayaç (İşlem Adımını Takip Etmek İçin)
-  let counter = 0;
+  const speedRange = document.getElementById('speed-range');
+  const speedVal = document.getElementById('speed-val');
   
-  // Basit FIFO için Kuyruk
-  let cacheQueue = [];
+  const motherboard = document.getElementById('motherboard');
+  const dataPacket = document.getElementById('data-packet');
   
-  // RAM Blokları için Örnek Veri
-  let ramData = ['10', '20', '30', '40'];
+  const cpuEl = document.getElementById('cpu');
+  const aluEl = document.getElementById('alu');
+  const cacheEl = document.getElementById('cache');
+  const ramEl = document.getElementById('ram');
   
-  // İşlem Döngüsü
-  function processCycle() {
-    counter = (counter + 1) % 180; // Döngüyü daha uzun tuttuk
+  const cpuVal = document.getElementById('cpu-val');
+  const aluVal = document.getElementById('alu-val');
+  const cacheVal = document.getElementById('cache-val');
+  const ramVal = document.getElementById('ram-val');
   
-    resetGlow();
+  const cacheBlocksContainer = document.getElementById('cache-blocks');
+  const ramBlocksContainer = document.getElementById('ram-blocks');
+  const consoleBody = document.getElementById('console-body');
+  const consoleClear = document.getElementById('console-clear');
   
-    if (counter < 30) {
-      statusText.textContent = "CPU veri gönderiyor...";
-      cpu.classList.add('glow');
+  const cachePolicyBadge = document.getElementById('cache-policy-badge');
+  const ramSizeBadge = document.getElementById('ram-size-badge');
+
+  // SVG Lines
+  const pulseCpuAlu = document.getElementById('pulse-cpu-alu');
+  const pulseAluCache = document.getElementById('pulse-alu-cache');
+  const pulseCacheRam = document.getElementById('pulse-cache-ram');
+
+  // --- Simulation State ---
+  let isAutoMode = false;
+  let autoTimer = null;
+  let autoStep = 0;
+  let speed = parseInt(speedRange.value);
+  let isManualRunning = false;
+
+  // Cache & RAM Memory Storage Structures
+  let cacheSize = parseInt(cacheSizeSelect.value);
+  let ramSize = parseInt(ramSizeSelect.value);
   
-    } else if (counter < 60) {
-      statusText.textContent = "ALU'da işlem seçildi: " + operationSelect.value;
-      alu.classList.add('glow');
-      processALU(operationSelect.value);
+  let cacheMemory = []; // Array of { label: string, value: string, active: boolean }
+  let ramMemory = [];   // Array of { label: string, value: string, active: boolean }
   
-    } else if (counter < 90) {
-      statusText.textContent = "Cache kontrol ediliyor...";
-      cache.classList.add('glow');
-      accessCache('A'); // Sadece örnek veri (A) için
-  
-    } else if (counter < 120) {
-      statusText.textContent = "RAM'e erişiliyor...";
-      ram.classList.add('glow');
-      accessRAM(0); // İlk RAM blok
-  
-    } else if (counter < 150) {
-      statusText.textContent = "Yazma işlemi yapılıyor...";
-      writeRAM(1, "99"); // RAM'de bir bloğa yeni veri yazılıyor
-  
-    } else {
-      statusText.textContent = "İşlem döngüsü yeniden başlıyor...";
-    }
-  }
-  
-  // Glow Efektlerini Sıfırlama
-  function resetGlow() {
-    cpu.classList.remove('glow');
-    alu.classList.remove('glow');
-    cache.classList.remove('glow');
-    ram.classList.remove('glow');
-  }
-  
-  // ALU İşlemleri
-  function processALU(op) {
-    let a = 6, b = 2;
-    let result = 0;
-    let displayOp = op;
-  
-    if (op === "AND") result = a & b;
-    else if (op === "OR") result = a | b;
-    else if (op === "NOT") result = ~a;
-    else if (op === "ADD") result = a + b;
-    else if (op === "SUB") result = a - b;
-    else if (op === "MUL") { result = a * b; displayOp = '*'; }
-    else if (op === "DIV") { result = a / b; displayOp = '/'; }
-  
-    aluOps.textContent = `ALU: ${a} ${displayOp} ${b} = ${result}`;
-  }
-  
-  // Cache Yönetimi (FIFO / LRU Seçimine Göre)
-  function accessCache(blockName) {
-    let policy = policySelect.value; // FIFO veya LRU
-  
-    // Eğer blok zaten cache'de varsa
-    for (let block of cacheBlocks) {
-      if (block.textContent === blockName) {
-        block.classList.add('highlight');
-        if (policy === "LRU") {
-          moveToTop(blockName); // LRU: erişilen blok en öne gelir
-        }
-        return;
-      }
-    }
-  
-    // Blok yoksa ekle (FIFO / LRU mantığına göre)
-    if (cacheQueue.length >= cacheBlocks.length) {
-      let removed = cacheQueue.shift();
-      replaceBlock(removed, blockName);
-    }
-    cacheQueue.push(blockName);
-    replaceBlock(null, blockName);
-  }
-  
-  // Cache'de Blok Değişimi
-  function replaceBlock(oldName, newName) {
-    for (let block of cacheBlocks) {
-      if (block.textContent === oldName || block.textContent === "") {
-        block.textContent = newName;
-        block.classList.add('highlight');
-        return;
-      }
-    }
-  }
-  
-  // LRU'da Erişilen Bloku Öne Çekmek
-  function moveToTop(blockName) {
-    cacheQueue = cacheQueue.filter(name => name !== blockName);
-    cacheQueue.push(blockName);
-  }
-  
-  // RAM Okuma İşlemi
-  function accessRAM(index) {
-    if (ramBlocks[index]) {
-      ramBlocks[index].classList.add('highlight');
-      statusText.textContent = `RAM'den veri okunuyor: ${ramData[index]}`;
-    }
-  }
-  
-  // RAM Yazma İşlemi
-  function writeRAM(index, newData) {
-    if (ramBlocks[index]) {
-      ramBlocks[index].classList.add('highlight');
-      ramData[index] = newData;
-      statusText.textContent = `RAM'e yeni veri yazıldı: ${newData}`;
-    }
-  }
-  
-  // Hatalı İşlem Animasyonu (ALU'da geçersiz işlem olursa tetiklenir)
-  function errorAnimation() {
-    alu.classList.add('glow');
-    statusText.textContent = "Hatalı İşlem!";
-    aluOps.textContent = "ALU: ERROR!";
-  }
-  
-  // Döngüyü Başlat
-  setInterval(processCycle, 100);
-  
-  document.getElementById('start-btn').addEventListener('click', () => {
-      const input1 = parseFloat(document.getElementById('input1').value);
-      const input2 = parseFloat(document.getElementById('input2').value);
-      const operation = document.getElementById('operation').value;
-      const cachePolicy = document.getElementById('cache-policy').value;
-      const cacheBlocks = document.querySelectorAll('#cache-blocks .block');
-      const ramBlocks = document.querySelectorAll('#ram-blocks .block');
-      const dataElement = document.getElementById('data');
+  // FIFO Queue & LRU Tracker (Stores cache block indices)
+  let fifoQueue = [];
+  let lruTracker = [];
+
+  // --- Initialize Memory Blocks ---
+  function initSimulation() {
+    // Read selections
+    cacheSize = parseInt(cacheSizeSelect.value);
+    ramSize = parseInt(ramSizeSelect.value);
     
-      let result;
-    
-      // ALU işlemleri
-      switch (operation) {
-        case 'ADD': result = input1 + input2; break;
-        case 'SUB': result = input1 - input2; break;
-        case 'MUL': result = input1 * input2; break;
-        case 'DIV': result = input1 / input2; break;
-        case 'AND': result = input1 & input2; break;
-        case 'OR': result = input1 | input2; break;
-        case 'NOT': result = ~input1; break;
-        default: result = "Hatalı işlem!";
-      }
-    
-      // Veri hareketi başlat
-      dataElement.textContent = `${input1}, ${input2}`;
-      dataElement.classList.add('active');
-    
-      document.getElementById('status').textContent = `CPU veriyi işliyor...`;
-      document.getElementById('alu-ops').textContent = `ALU işlemi: ${operation}`;
-    
-      setTimeout(() => {
-        dataElement.classList.remove('active');
-    
-        document.getElementById('status').textContent = `ALU sonucu: ${result}`;
-    
-        // Önce Cache içinde arama yap (Hit / Miss)
-        setTimeout(() => {
-          const hit = checkCacheHit(cacheBlocks, result);
-    
-          if (hit) {
-            document.getElementById('status').textContent = `Cache Hit: Veri zaten cache içinde!`;
-          } else {
-            document.getElementById('status').textContent = `Cache Miss: RAM'den Cache'e veri yükleniyor...`;
-    
-            // RAM'de ara ve Cache'e çek
-            setTimeout(() => {
-              const ramHit = checkRAM(ramBlocks, result);
-    
-              if (ramHit) {
-                updateCache(cacheBlocks, result, cachePolicy);
-                document.getElementById('status').textContent = `Veri RAM'den Cache'e çekildi.`;
-              } else {
-                // Eğer RAM'de yoksa RAM'e yaz, sonra Cache'e çek
-                updateRAM(ramBlocks, result);
-                updateCache(cacheBlocks, result, cachePolicy);
-                document.getElementById('status').textContent = `Veri RAM'e yazıldı ve Cache'e çekildi.`;
-              }
-    
-            }, 1500);
-          }
-    
-        }, 1500);
-    
-      }, 2000);
-    });
-    
-    // Cache içinde veri var mı? (Hit kontrolü)
-    function checkCacheHit(blocks, value) {
-      return Array.from(blocks).some(block => block.textContent == value);
-    }
-    
-    // RAM içinde veri var mı?
-    function checkRAM(blocks, value) {
-      return Array.from(blocks).some(block => block.textContent == value);
-    }
-    
-    // Cache update fonksiyonu
-    function updateCache(blocks, value, policy) {
-      let emptyBlock = Array.from(blocks).find(block => !block.classList.contains('active'));
-    
-      if (!emptyBlock) {
-        if (policy === 'FIFO') {
-          emptyBlock = blocks[0];
-        } else if (policy === 'LRU') {
-          emptyBlock = blocks[blocks.length - 1];
-        }
-        emptyBlock.classList.remove('active');
-      }
-    
-      emptyBlock.textContent = value;
-      emptyBlock.classList.add('active');
-    }
-    
-    // RAM update fonksiyonu
-    function updateRAM(blocks, value) {
-      let emptyBlock = Array.from(blocks).find(block => !block.classList.contains('active'));
-    
-      if (!emptyBlock) {
-        emptyBlock = blocks[0];
-        emptyBlock.classList.remove('active');
-      }
-    
-      emptyBlock.textContent = value;
-      emptyBlock.classList.add('active');
-    }
-  // Sayfa yüklendiğinde veya Cache boyutu değişince blokları çiz
-  document.addEventListener('DOMContentLoaded', () => {
-      createCacheBlocks();
-    });
-    
-    document.getElementById('cache-size').addEventListener('change', () => {
-      createCacheBlocks();
-    });
-    
-    // Dinamik Cache blok üretici
-    function createCacheBlocks() {
-      const cacheSize = parseInt(document.getElementById('cache-size').value);
-      const cacheBlocksContainer = document.getElementById('cache-blocks');
-      
-      // Önceki blokları temizle
-      cacheBlocksContainer.innerHTML = '';
-    
-      // Yeni blokları oluştur
-      for (let i = 0; i < cacheSize; i++) {
-        const block = document.createElement('div');
-        block.className = 'block';
-        cacheBlocksContainer.appendChild(block);
-      }
-    }
-  
-    emptyBlock.textContent = value;
-  // Dinamik RAM blok üretici
-  function createRAMBlocks() {
-      const ramSize = parseInt(document.getElementById('ram-size').value);
-      const ramBlocksContainer = document.getElementById('ram-blocks');
-      
-      // Önce RAM'i temizle
-      ramBlocksContainer.innerHTML = '';
-    
-      // Yeni blokları oluştur
-      for (let i = 0; i < ramSize; i++) {
-        const block = document.createElement('div');
-        block.className = 'block';
-        ramBlocksContainer.appendChild(block);
-      }
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-      createCacheBlocks();
-      createRAMBlocks();
-    });
-    
-    document.getElementById('cache-size').addEventListener('change', () => {
-      createCacheBlocks();
-    });
-    
-    document.getElementById('ram-size').addEventListener('change', () => {
-      createRAMBlocks();
-    });
-    function createRAMBlocks() {
-    const ramSize = parseInt(document.getElementById('ram-size').value);
-    const ramBlocksContainer = document.getElementById('ram-blocks');
+    // Clear elements
+    cacheBlocksContainer.innerHTML = '';
     ramBlocksContainer.innerHTML = '';
-  
-    for (let i = 0; i < ramSize; i++) {
+    
+    // Initialize Cache Memory State & UI
+    cacheMemory = [];
+    fifoQueue = [];
+    lruTracker = [];
+    for (let i = 0; i < cacheSize; i++) {
+      cacheMemory.push({ label: 'C' + i, value: '-', active: false });
+      
       const block = document.createElement('div');
-      block.className = 'block';
-      block.textContent = i + 1; // Blok numarası
+      block.className = 'mem-block';
+      block.id = 'cache-b-' + i;
+      
+      const label = document.createElement('span');
+      label.className = 'block-label';
+      label.textContent = 'C' + i;
+      
+      const val = document.createElement('span');
+      val.className = 'block-value';
+      val.textContent = '-';
+      
+      const meta = document.createElement('span');
+      meta.className = 'block-meta';
+      meta.textContent = '';
+      
+      block.appendChild(label);
+      block.appendChild(val);
+      block.appendChild(meta);
+      cacheBlocksContainer.appendChild(block);
+    }
+    
+    // Initialize RAM Memory State & UI with default mock numbers
+    ramMemory = [];
+    for (let i = 0; i < ramSize; i++) {
+      // Pre-fill RAM with some sample variables (e.g. 10, 20, 30...)
+      const mockVal = (i * 10).toString();
+      ramMemory.push({ label: 'R' + i, value: mockVal, active: true });
+      
+      const block = document.createElement('div');
+      block.className = 'mem-block active';
+      block.id = 'ram-b-' + i;
+      
+      const label = document.createElement('span');
+      label.className = 'block-label';
+      label.textContent = 'R' + i;
+      
+      const val = document.createElement('span');
+      val.className = 'block-value';
+      val.textContent = mockVal;
+      
+      block.appendChild(label);
+      block.appendChild(val);
       ramBlocksContainer.appendChild(block);
     }
+    
+    // Update labels and badges
+    cachePolicyBadge.textContent = policySelect.value;
+    ramSizeBadge.textContent = ramSize + ' Blok';
+    
+    // Reset Hardware components labels
+    cpuVal.textContent = 'IDLE';
+    aluVal.textContent = 'IDLE';
+    cacheVal.textContent = 'READY';
+    ramVal.textContent = 'READY';
+    
+    // Reset highlights
+    resetComponentVisuals();
+    hidePacket();
+    
+    // Draw connections
+    setTimeout(drawLines, 50);
   }
-  function createRAMBlocks() {
-    const ramContainer = document.getElementById('ram-blocks');
-    ramContainer.innerHTML = '';
-  
-    const size = parseInt(document.getElementById('ram-size').value);
-    ramData = []; // RAM verilerini sıfırla
-  
-    for (let i = 0; i < size; i++) {
-      const block = document.createElement('div');
-      block.classList.add('block');
-      block.textContent = (i + 1).toString();
-      ramContainer.appendChild(block);
-      ramData.push((i * 10).toString()); // Örnek veri
+
+  // --- Dynamic SVG Lines Drawing ---
+  function drawLines() {
+    if (window.getComputedStyle(motherboard).flexDirection === 'column') {
+      // Mobile layout: Hide SVG lines
+      document.getElementById('connector-svg').style.display = 'none';
+      return;
+    }
+    
+    document.getElementById('connector-svg').style.display = 'block';
+    
+    const mbRect = motherboard.getBoundingClientRect();
+    
+    const getCenter = (el) => {
+      const rect = el.getBoundingClientRect();
+      return {
+        x: rect.left - mbRect.left + rect.width / 2,
+        y: rect.top - mbRect.top + rect.height / 2
+      };
+    };
+
+    const cCPU = getCenter(cpuEl);
+    const cALU = getCenter(aluEl);
+    const cCache = getCenter(cacheEl);
+    const cRAM = getCenter(ramEl);
+
+    // CPU to ALU path
+    const p1 = `M ${cCPU.x} ${cCPU.y} L ${cALU.x} ${cALU.y}`;
+    document.getElementById('line-cpu-alu').setAttribute('d', p1);
+    pulseCpuAlu.setAttribute('d', p1);
+
+    // ALU to Cache path
+    const p2 = `M ${cALU.x} ${cALU.y} L ${cCache.x} ${cCache.y}`;
+    document.getElementById('line-alu-cache').setAttribute('d', p2);
+    pulseAluCache.setAttribute('d', p2);
+
+    // Cache to RAM path
+    const p3 = `M ${cCache.x} ${cCache.y} L ${cRAM.x} ${cRAM.y}`;
+    document.getElementById('line-cache-ram').setAttribute('d', p3);
+    pulseCacheRam.setAttribute('d', p3);
+  }
+
+  // --- Animate Data Packet ---
+  function movePacket(fromUnit, toUnit, content, callback) {
+    const mbRect = motherboard.getBoundingClientRect();
+    const fromRect = fromUnit.getBoundingClientRect();
+    const toRect = toUnit.getBoundingClientRect();
+    
+    const startX = fromRect.left - mbRect.left + fromRect.width / 2 - 14;
+    const startY = fromRect.top - mbRect.top + fromRect.height / 2 - 14;
+    
+    const endX = toRect.left - mbRect.left + toRect.width / 2 - 14;
+    const endY = toRect.top - mbRect.top + toRect.height / 2 - 14;
+    
+    // Set content and initial position
+    dataPacket.textContent = content;
+    dataPacket.style.transform = `translate(${startX}px, ${startY}px)`;
+    dataPacket.style.opacity = '1';
+    
+    // Trigger pulse on the line
+    setLinePulseActive(fromUnit.id, toUnit.id, true);
+
+    // Force reflow
+    dataPacket.offsetHeight;
+    
+    // Set final position
+    dataPacket.style.transform = `translate(${endX}px, ${endY}px)`;
+    
+    setTimeout(() => {
+      setLinePulseActive(fromUnit.id, toUnit.id, false);
+      if (callback) callback();
+    }, 600); // Transitions take 0.6s
+  }
+
+  function hidePacket() {
+    dataPacket.style.opacity = '0';
+  }
+
+  function setLinePulseActive(fromId, toId, active) {
+    let pulse = null;
+    if ((fromId === 'cpu' && toId === 'alu') || (fromId === 'alu' && toId === 'cpu')) {
+      pulse = pulseCpuAlu;
+    } else if ((fromId === 'alu' && toId === 'cache') || (fromId === 'cache' && toId === 'alu')) {
+      pulse = pulseAluCache;
+    } else if ((fromId === 'cache' && toId === 'ram') || (fromId === 'ram' && toId === 'cache')) {
+      pulse = pulseCacheRam;
+    }
+    
+    if (pulse) {
+      if (active) {
+        pulse.classList.add('active');
+      } else {
+        pulse.classList.remove('active');
+      }
     }
   }
-  
-  function createCacheBlocks() {
-    const cacheContainer = document.getElementById('cache-blocks');
-    cacheContainer.innerHTML = '';
-  
-    const blockNames = ['A', 'B', 'C', 'D'];
-    for (let name of blockNames) {
-      const block = document.createElement('div');
-      block.classList.add('block');
-      block.textContent = name;
-      cacheContainer.appendChild(block);
+
+  // --- Visual Reset Helper ---
+  function resetComponentVisuals() {
+    cpuEl.classList.remove('active');
+    aluEl.classList.remove('active');
+    cacheEl.classList.remove('active');
+    ramEl.classList.remove('active');
+    
+    document.querySelectorAll('.mem-block').forEach(b => {
+      b.classList.remove('highlight', 'evicting');
+    });
+  }
+
+  // --- Terminal Logging Utility ---
+  function logToConsole(message, type = 'info') {
+    const time = new Date().toLocaleTimeString('tr-TR');
+    const logLine = document.createElement('div');
+    logLine.className = 'console-line ' + type;
+    
+    const ts = document.createElement('span');
+    ts.className = 'timestamp';
+    ts.textContent = `[${time}]`;
+    
+    const msg = document.createElement('span');
+    msg.className = 'msg';
+    msg.textContent = message;
+    
+    logLine.appendChild(ts);
+    logLine.appendChild(msg);
+    consoleBody.appendChild(logLine);
+    
+    // Auto scroll to bottom
+    consoleBody.scrollTop = consoleBody.scrollHeight;
+  }
+
+  // --- Cache Replacement Policy Logic ---
+  // Returns block index of the cache cell
+  function writeToCache(value, policy) {
+    // 1. Search for existing empty cache cell
+    const emptyIndex = cacheMemory.findIndex(cell => !cell.active);
+    
+    if (emptyIndex !== -1) {
+      cacheMemory[emptyIndex].value = value;
+      cacheMemory[emptyIndex].active = true;
+      
+      // Track insertion for FIFO and LRU
+      fifoQueue.push(emptyIndex);
+      lruTracker.push(emptyIndex);
+      
+      updateCacheUI(emptyIndex);
+      logToConsole(`[Cache] Veri önbellekteki boş hücreye (C${emptyIndex}) yerleştirildi.`, 'info');
+      return { index: emptyIndex, evicted: null };
+    }
+    
+    // 2. Cache is Full: Evict block according to policy
+    let evictIndex;
+    
+    if (policy === 'FIFO') {
+      evictIndex = fifoQueue.shift(); // Evict oldest loaded
+      fifoQueue.push(evictIndex);     // Mark new as newest
+      
+      // Keep LRU in sync
+      lruTracker = lruTracker.filter(idx => idx !== evictIndex);
+      lruTracker.push(evictIndex);
+    } else {
+      // LRU Policy
+      evictIndex = lruTracker.shift(); // Evict least recently used
+      lruTracker.push(evictIndex);     // Mark new as recently accessed
+      
+      // Keep FIFO in sync
+      fifoQueue = fifoQueue.filter(idx => idx !== evictIndex);
+      fifoQueue.push(evictIndex);
+    }
+    
+    const evictedValue = cacheMemory[evictIndex].value;
+    
+    // Update cache slot
+    cacheMemory[evictIndex].value = value;
+    cacheMemory[evictIndex].active = true;
+    
+    updateCacheUI(evictIndex);
+    
+    logToConsole(`[Cache] Önbellek dolu! ${policy} politikasına göre C${evictIndex} hücresindeki '${evictedValue}' tahliye edildi.`, 'warn');
+    return { index: evictIndex, evicted: evictedValue };
+  }
+
+  function touchCacheBlock(index) {
+    // Update LRU tracking order: move index to end
+    lruTracker = lruTracker.filter(idx => idx !== index);
+    lruTracker.push(index);
+    
+    // Highlight the Cache UI block metadata briefly
+    updateCacheMetaUI();
+  }
+
+  function updateCacheUI(index) {
+    const blockEl = document.getElementById('cache-b-' + index);
+    if (blockEl) {
+      blockEl.classList.add('active');
+      const valEl = blockEl.querySelector('.block-value');
+      valEl.textContent = cacheMemory[index].value;
+    }
+    updateCacheMetaUI();
+  }
+
+  function updateCacheMetaUI() {
+    // Show priority badges inside the cache blocks for transparency
+    const policy = policySelect.value;
+    for (let i = 0; i < cacheSize; i++) {
+      const metaEl = document.querySelector('#cache-b-' + i + ' .block-meta');
+      if (metaEl) {
+        if (!cacheMemory[i].active) {
+          metaEl.textContent = '';
+          continue;
+        }
+        if (policy === 'FIFO') {
+          const fifoOrder = fifoQueue.indexOf(i);
+          metaEl.textContent = fifoOrder !== -1 ? 'F' + fifoOrder : '';
+        } else {
+          const lruOrder = lruTracker.indexOf(i);
+          metaEl.textContent = lruOrder !== -1 ? 'L' + lruOrder : '';
+        }
+      }
     }
   }
-  const dataElement = document.getElementById('data');
+
+  // --- RAM Management ---
+  function writeToRAM(value) {
+    // Find empty block in RAM
+    let emptyIndex = ramMemory.findIndex(cell => cell.value === '-' || !cell.active);
+    
+    if (emptyIndex === -1) {
+      // Overwrite the first block if RAM is full
+      emptyIndex = 0;
+      logToConsole(`[RAM] RAM dolu. R0 hücresi '${ramMemory[0].value}' değerinden '${value}' değerine güncellendi.`, 'warn');
+    } else {
+      logToConsole(`[RAM] Veri RAM'deki boş R${emptyIndex} hücresine yazıldı.`, 'info');
+    }
+    
+    ramMemory[emptyIndex].value = value;
+    ramMemory[emptyIndex].active = true;
+    
+    const blockEl = document.getElementById('ram-b-' + emptyIndex);
+    if (blockEl) {
+      blockEl.classList.add('active');
+      blockEl.querySelector('.block-value').textContent = value;
+      blockEl.classList.add('highlight');
+      setTimeout(() => blockEl.classList.remove('highlight'), 1000);
+    }
+    
+    return emptyIndex;
+  }
+
+  // --- Manual Execution Async Flow ---
+  async function runManualSimulation() {
+    if (isManualRunning) return;
+    
+    // Pause Auto mode if active
+    if (isAutoMode) {
+      toggleAutoMode();
+    }
+    
+    isManualRunning = true;
+    startBtn.disabled = true;
+    
+    resetComponentVisuals();
+    
+    const in1 = parseFloat(input1El.value);
+    const in2 = parseFloat(input2El.value);
+    const op = operationSelect.value;
+    const policy = policySelect.value;
+    
+    if (isNaN(in1) || (op !== 'NOT' && isNaN(in2))) {
+      logToConsole("HATA: Lütfen geçerli sayı girdileri girin!", "err");
+      isManualRunning = false;
+      startBtn.disabled = false;
+      return;
+    }
+
+    // Phase 1: CPU preparing data
+    logToConsole(`[CPU] Veriler hazırlandı: Giriş A = ${in1}, Giriş B = ${op === 'NOT' ? 'Yok' : in2}`, 'system');
+    cpuEl.classList.add('active');
+    cpuVal.textContent = `A:${in1} B:${op === 'NOT' ? '-' : in2}`;
+    
+    await delay(800);
+    
+    // Move packet CPU -> ALU
+    cpuEl.classList.remove('active');
+    logToConsole("[Otobüs] Veriler ALU birimine aktarılıyor...", "info");
+    
+    const aluInputStr = op === 'NOT' ? `${in1}` : `${in1},${in2}`;
+    
+    await new Promise(resolve => {
+      movePacket(cpuEl, aluEl, aluInputStr, resolve);
+    });
+    
+    hidePacket();
+    
+    // Phase 2: ALU Computing
+    aluEl.classList.add('active');
+    let result;
+    switch (op) {
+      case 'ADD': result = in1 + in2; break;
+      case 'SUB': result = in1 - in2; break;
+      case 'MUL': result = in1 * in2; break;
+      case 'DIV': 
+        if (in2 === 0) {
+          result = "ERR (Böl/0)";
+          logToConsole("[ALU] Sıfıra bölme hatası!", "err");
+        } else {
+          result = Math.round((in1 / in2) * 100) / 100; 
+        }
+        break;
+      case 'AND': result = Math.floor(in1) & Math.floor(in2); break;
+      case 'OR': result = Math.floor(in1) | Math.floor(in2); break;
+      case 'NOT': result = ~Math.floor(in1); break;
+      default: result = 0;
+    }
+    
+    aluVal.textContent = `${op}: ${result}`;
+    logToConsole(`[ALU] Hesaplama yapıldı: ${op} = ${result}`, 'system');
+    
+    await delay(1000);
+    
+    // Move packet ALU -> Cache
+    aluEl.classList.remove('active');
+    logToConsole("[Otobüs] ALU sonucu önbelleğe gönderiliyor...", "info");
+    
+    await new Promise(resolve => {
+      movePacket(aluEl, cacheEl, result.toString(), resolve);
+    });
+    
+    hidePacket();
+    
+    // Phase 3: Cache lookup (Hit / Miss check)
+    cacheEl.classList.add('active');
+    cacheVal.textContent = 'CHECKING';
+    logToConsole(`[Cache] Önbellekte '${result}' değeri aranıyor...`, 'info');
+    
+    await delay(1000);
+    
+    // Search Cache
+    const cacheHitIndex = cacheMemory.findIndex(cell => cell.active && parseFloat(cell.value) === result);
+    
+    if (cacheHitIndex !== -1) {
+      // CACHE HIT!
+      cacheVal.textContent = 'HIT!';
+      cacheEl.style.borderColor = 'var(--color-cache)';
+      logToConsole(`[ÖNBELLEK HİT] Veri C${cacheHitIndex} hücresinde bulundu! RAM erişimine gerek kalmadı.`, 'info');
+      
+      const blockEl = document.getElementById('cache-b-' + cacheHitIndex);
+      blockEl.classList.add('highlight');
+      
+      touchCacheBlock(cacheHitIndex);
+      
+      await delay(1500);
+      blockEl.classList.remove('highlight');
+    } else {
+      // CACHE MISS!
+      cacheVal.textContent = 'MISS!';
+      cacheEl.style.borderColor = 'var(--color-cpu)';
+      logToConsole("[ÖNBELLEK MISS] Veri önbellekte bulunamadı! RAM'e sorgu gönderiliyor...", "warn");
+      
+      await delay(1000);
+      
+      // Move packet Cache -> RAM
+      cacheEl.classList.remove('active');
+      cacheEl.style.borderColor = 'var(--border-color)';
+      
+      await new Promise(resolve => {
+        movePacket(cacheEl, ramEl, result.toString(), resolve);
+      });
+      
+      hidePacket();
+      
+      // Phase 4: RAM lookup
+      ramEl.classList.add('active');
+      ramVal.textContent = 'READ/WRITE';
+      
+      await delay(1000);
+      
+      // Search RAM
+      const ramHitIndex = ramMemory.findIndex(cell => cell.active && parseFloat(cell.value) === result);
+      
+      if (ramHitIndex !== -1) {
+        // RAM HIT
+        logToConsole(`[RAM HİT] Veri R${ramHitIndex} hücresinde bulundu. RAM'den Cache'e yükleniyor...`, 'info');
+        const blockEl = document.getElementById('ram-b-' + ramHitIndex);
+        blockEl.classList.add('highlight');
+        await delay(1000);
+        blockEl.classList.remove('highlight');
+      } else {
+        // RAM MISS: Write to RAM first
+        logToConsole("[RAM MISS] Veri RAM'de bulunamadı. Değer RAM'e yazılıyor...", "warn");
+        writeToRAM(result.toString());
+        await delay(1000);
+      }
+      
+      // Move data from RAM to Cache
+      ramEl.classList.remove('active');
+      logToConsole("[Otobüs] Veri RAM'den çekilip Önbelleğe (Cache) yükleniyor...", "info");
+      
+      await new Promise(resolve => {
+        movePacket(ramEl, cacheEl, result.toString(), resolve);
+      });
+      
+      hidePacket();
+      
+      // Update Cache using policy
+      cacheEl.classList.add('active');
+      cacheVal.textContent = 'UPDATING';
+      
+      const cacheOutcome = writeToCache(result.toString(), policy);
+      
+      // Visual feedback for eviction if it happened
+      if (cacheOutcome.evicted !== null) {
+        const evictedBlockEl = document.getElementById('cache-b-' + cacheOutcome.index);
+        evictedBlockEl.classList.add('evicting');
+        await delay(800);
+        evictedBlockEl.classList.remove('evicting');
+      }
+      
+      const newBlockEl = document.getElementById('cache-b-' + cacheOutcome.index);
+      newBlockEl.classList.add('highlight');
+      
+      await delay(1200);
+      newBlockEl.classList.remove('highlight');
+    }
+    
+    // Complete Manual cycle
+    resetComponentVisuals();
+    cpuVal.textContent = 'IDLE';
+    aluVal.textContent = 'IDLE';
+    cacheVal.textContent = 'READY';
+    ramVal.textContent = 'READY';
+    
+    logToConsole("İşlem başarıyla tamamlandı. Sistem boşta (IDLE).", "system");
+    isManualRunning = false;
+    startBtn.disabled = false;
+  }
+
+  // --- Auto Cycle Timer Loop ---
+  function autoCycleStep() {
+    resetComponentVisuals();
+    
+    // Phase Machine for automatic looping demo
+    switch (autoStep) {
+      case 0:
+        // CPU Step
+        cpuEl.classList.add('active');
+        cpuVal.textContent = 'FETCH';
+        logToConsole("[Döngü] CPU yeni bir buyruk aldı (Buyruk: LOAD A).", "info");
+        
+        movePacket(cpuEl, aluEl, "LOAD A", null);
+        autoStep = 1;
+        break;
+        
+      case 1:
+        // ALU Step
+        aluEl.classList.add('active');
+        aluVal.textContent = 'DECODE';
+        logToConsole("[Döngü] ALU komut çözümlemesi (Decode) yapıyor.", "info");
+        
+        movePacket(aluEl, cacheEl, "ADDR_A", null);
+        autoStep = 2;
+        break;
+        
+      case 2:
+        // Cache Step
+        cacheEl.classList.add('active');
+        cacheVal.textContent = 'LOOKUP';
+        logToConsole("[Döngü] Cache (Önbellek) kontrol ediliyor...", "info");
+        
+        movePacket(cacheEl, ramEl, "MISS_REQ", null);
+        autoStep = 3;
+        break;
+        
+      case 3:
+        // RAM Step
+        ramEl.classList.add('active');
+        ramVal.textContent = 'READING';
+        logToConsole("[Döngü] Önbellekte bulunamadı. RAM'den okuma yapılıyor.", "info");
+        
+        movePacket(ramEl, cacheEl, "DATA_VAL", null);
+        autoStep = 4;
+        break;
+        
+      case 4:
+        // Cache update
+        cacheEl.classList.add('active');
+        cacheVal.textContent = 'REFRESH';
+        
+        // Pick a random mock tag to put in Cache
+        const mockTags = ['A', 'B', 'X', 'Y', 'Z', 'M'];
+        const randomTag = mockTags[Math.floor(Math.random() * mockTags.length)];
+        logToConsole(`[Döngü] RAM'den çekilen '${randomTag}' değeri önbelleğe yazılıyor.`, 'info');
+        
+        const cacheOutcome = writeToCache(randomTag, policySelect.value);
+        
+        autoStep = 5;
+        break;
+        
+      case 5:
+        // Cycle Reset
+        logToConsole("[Döngü] Otomatik işlem döngüsü tamamlandı.", "system");
+        autoStep = 0;
+        break;
+    }
+  }
+
+  function toggleAutoMode() {
+    if (isAutoMode) {
+      clearInterval(autoTimer);
+      autoTimer = null;
+      isAutoMode = false;
+      autoBtn.textContent = 'Otomatik Döngü';
+      autoBtn.classList.remove('active');
+      logToConsole("Otomatik simülasyon döngüsü durduruldu.", "system");
+      resetComponentVisuals();
+      hidePacket();
+    } else {
+      isAutoMode = true;
+      autoBtn.textContent = 'Durdur';
+      autoBtn.classList.add('active');
+      logToConsole("Otomatik simülasyon döngüsü başlatıldı.", "system");
+      autoStep = 0;
+      autoCycleStep(); // run immediately
+      autoTimer = setInterval(autoCycleStep, speed);
+    }
+  }
+
+  // --- Reset All state ---
+  function resetAll() {
+    if (isAutoMode) {
+      toggleAutoMode();
+    }
+    isManualRunning = false;
+    startBtn.disabled = false;
+    
+    // Clear terminal logs
+    consoleBody.innerHTML = '';
+    
+    logToConsole("Simülasyon sıfırlandı. Yeni bellek yapıları oluşturuluyor.", "system");
+    initSimulation();
+  }
+
+  // --- Delay Helper ---
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // --- Event Listeners Binding ---
+  
+  startBtn.addEventListener('click', runManualSimulation);
+  autoBtn.addEventListener('click', toggleAutoMode);
+  resetBtn.addEventListener('click', resetAll);
+  
+  // Re-init structures when parameters are modified
+  cacheSizeSelect.addEventListener('change', initSimulation);
+  ramSizeSelect.addEventListener('change', initSimulation);
+  policySelect.addEventListener('change', () => {
+    cachePolicyBadge.textContent = policySelect.value;
+    updateCacheMetaUI();
+    logToConsole(`Tahliye politikası değiştirildi: ${policySelect.value}`, 'system');
+  });
+
+  // Slider change for auto speed
+  speedRange.addEventListener('input', (e) => {
+    speed = parseInt(e.target.value);
+    speedVal.textContent = (speed / 1000).toFixed(2) + 's';
+    
+    if (isAutoMode) {
+      // Recreate interval with new speed
+      clearInterval(autoTimer);
+      autoTimer = setInterval(autoCycleStep, speed);
+    }
+  });
+
+  // Clear log
+  consoleClear.addEventListener('click', () => {
+    consoleBody.innerHTML = '';
+  });
+
+  // Handle window resizing to keep SVG lines accurate
+  window.addEventListener('resize', drawLines);
+
+  // --- Launch App ---
+  initSimulation();
+  logToConsole("Simülatör hazır. Değerleri girin ve 'İşlemi Başlat' butonuna basın.", "system");
+});

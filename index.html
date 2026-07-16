@@ -4,297 +4,807 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CPU - ALU - Cache - RAM Simülasyonu</title>
+  <!-- Modern Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
   <style>
+    :root {
+      --bg-dark: #07070e;
+      --panel-bg: rgba(15, 15, 30, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      
+      --color-cpu: #ff007f;
+      --color-alu: #00d9ff;
+      --color-cache: #00ff88;
+      --color-ram: #ffaa00;
+      
+      --glow-cpu: 0 0 15px rgba(255, 0, 127, 0.5);
+      --glow-alu: 0 0 15px rgba(0, 217, 255, 0.5);
+      --glow-cache: 0 0 15px rgba(0, 255, 136, 0.5);
+      --glow-ram: 0 0 15px rgba(255, 170, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-    background: #0a0a0a;
-    color: #ffffff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    overflow-x: hidden;
-    min-height: 100vh;
-}
+      background: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(255, 0, 127, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(0, 217, 255, 0.05) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(0, 255, 136, 0.05) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
 
-/* Başlık */
-h1 {
-    margin-bottom: 10px;
-    font-size: 2rem;
-    color: #00d9ff;
-    text-align: center;
-}
-/*Form*/
-.form-container {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-            width: 300px;
-            text-align: center;
-        }
+    header {
+      text-align: center;
+      margin-bottom: 25px;
+      width: 100%;
+      max-width: 1200px;
+    }
 
-        .form-container input,
-        .form-container select {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            background: #ffffff;
-            color: #000;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-        }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d9ff 0%, #ff007f 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+      letter-spacing: -0.5px;
+    }
 
-        .form-container button {
-            margin-top: 15px;
-            width: 100%;
-            padding: 12px;
-            background-color: #00bcd4;
-            color: white;
-            font-size: 18px;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      font-weight: 300;
+    }
 
-        .form-container button:hover {
-            background-color: #0097a7;
-        }
+    /* Main Dashboard Layout */
+    .dashboard {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 25px;
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 30px;
+    }
 
-/* Seçim Kutuları */
-.selector {
-    margin-bottom: 20px;
-    width: 100%;
-    max-width: 300px;
-}
+    @media (max-width: 968px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
 
-.selector select {
-    width: 100%;
-    padding: 10px 14px;
-    font-size: 1rem;
-    border-radius: 8px;
-    border: none;
-    outline: none;
-    background: #ffffff;
-    color: #000;
-    cursor: pointer;
-}
+    /* Glassmorphic Panel Card */
+    .panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
 
-/* Ana İşlem Kutuları */
-.container {
-    display: flex;
-    align-items: center;
-    gap: 40px;
-    position: relative;
-    margin-top: 30px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
+    .panel-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-/* Her Birim */
-.unit {
-    border: 3px solid #00d9ff;
-    padding: 20px 30px;
-    border-radius: 15px;
-    text-align: center;
-    background: #111;
-    box-shadow: 0 0 15px #00d9ff;
-    min-width: 120px;
-    font-weight: bold;
-    font-size: 1.1rem;
-}
+    /* Form Fields */
+    .control-group {
+      margin-bottom: 18px;
+    }
 
-/* Bağlantı Çizgileri */
-.line {
-    width: 60px;
-    height: 4px;
-    background: #00d9ff;
-}
+    .control-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
-/* Hareket Eden Veri */
-.data {
-    width: 14px;
-    height: 14px;
-    background: #ffd700;
-    border-radius: 50%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    animation: moveData 14s linear infinite;
-    box-shadow: 0 0 8px #ffd700;
-}
+    .control-group input[type="number"],
+    .control-group select {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
 
-/* Veri Hareket Animasyonu */
-@keyframes moveData {
-    0% { left: 0; top: 0; }
-    20% { left: 60px; top: 0; }
-    25% { left: 60px; top: 40px; }
-    45% { left: 180px; top: 40px; }
-    50% { left: 180px; top: 0; }
-    70% { left: 300px; top: 0; }
-    75% { left: 300px; top: 40px; }
-    100% { left: 420px; top: 40px; }
-}
+    .control-group input[type="number"]:focus,
+    .control-group select:focus {
+      border-color: var(--color-alu);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.15);
+    }
 
-/* Durum Metni */
-.status-text {
-    margin-top: 20px;
-    font-size: 1.2rem;
-    color: #00ff88;
-    height: 30px;
-    text-align: center;
-}
+    .btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
 
-/* ALU İşlemi Sonucu */
-.alu-ops {
-    margin-top: 20px;
-    font-size: 1.2rem;
-    color: #ffcc00;
-}
+    .btn-primary {
+      background: linear-gradient(135deg, #00b4db, #0083b0);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0, 180, 219, 0.3);
+    }
 
-/* Cache ve RAM Blokları */
-.cache-blocks, .ram-blocks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 20px;
-    justify-content: center;
-}
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 180, 219, 0.4);
+    }
 
-/* Cache/RAM Tek Blok */
-.block {
-    width: 50px;
-    height: 50px;
-    background: #00d9ff;
-    opacity: 0.9;
-    border: 2px solid #00d9ff;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1rem;
-    transition: transform 0.3s, background 0.3s, box-shadow 0.3s;
-}
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
 
-/* Öne Çıkan Blok */
-.highlight {
-    background: #ff0;
-    transform: scale(1.2);
-    box-shadow: 0 0 10px #ff0;
-}
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
-/* Parlayan Blok */
-.glow {
-    box-shadow: 0 0 30px #00ffea, 0 0 60px #00ffea;
-}
+    /* Auto mode secondary panel controls */
+    .auto-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
 
-/* Dolu Blok */
-.block.active {
-    background-color: #4CAF50;
-    color: white;
-}
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      font-size: 0.85rem;
+      border-radius: 10px;
+      cursor: pointer;
+      flex: 1;
+      transition: background 0.2s;
+    }
 
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary.active {
+      background: rgba(0, 255, 136, 0.15);
+      border-color: var(--color-cache);
+      color: var(--color-cache);
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
+    }
+
+    .speed-slider-container {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .speed-slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .speed-slider {
+      width: 100%;
+      accent-color: var(--color-alu);
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      height: 6px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Visual Pipeline Area */
+    .pipeline-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+
+    .motherboard {
+      position: relative;
+      background: rgba(10, 10, 25, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 30px;
+      min-height: 220px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+
+    @media (max-width: 650px) {
+      .motherboard {
+        flex-direction: column;
+        gap: 30px;
+        min-height: auto;
+      }
+      .connector-svg {
+        display: none !important;
+      }
+    }
+
+    .hardware-unit {
+      position: relative;
+      width: 120px;
+      height: 100px;
+      background: rgba(20, 20, 40, 0.8);
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+      z-index: 2;
+    }
+
+    .hardware-unit span.unit-name {
+      font-size: 1rem;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .hardware-unit span.unit-val {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'Fira Code', monospace;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Active Highlight styles for Hardware Units */
+    #cpu.active {
+      border-color: var(--color-cpu);
+      box-shadow: var(--glow-cpu);
+      transform: translateY(-5px);
+    }
+    #cpu.active span.unit-name {
+      color: var(--color-cpu);
+    }
+
+    #alu.active {
+      border-color: var(--color-alu);
+      box-shadow: var(--glow-alu);
+      transform: translateY(-5px);
+    }
+    #alu.active span.unit-name {
+      color: var(--color-alu);
+    }
+
+    #cache.active {
+      border-color: var(--color-cache);
+      box-shadow: var(--glow-cache);
+      transform: translateY(-5px);
+    }
+    #cache.active span.unit-name {
+      color: var(--color-cache);
+    }
+
+    #ram.active {
+      border-color: var(--color-ram);
+      box-shadow: var(--glow-ram);
+      transform: translateY(-5px);
+    }
+    #ram.active span.unit-name {
+      color: var(--color-ram);
+    }
+
+    /* Connector lines SVG (desktop only) */
+    .connector-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .connector-line {
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 4;
+      fill: none;
+      transition: stroke 0.3s;
+    }
+
+    .connector-pulse {
+      stroke: var(--color-alu);
+      stroke-width: 4;
+      stroke-dasharray: 10 30;
+      stroke-dashoffset: 0;
+      animation: pulseFlow 2s linear infinite;
+      fill: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .connector-pulse.active {
+      opacity: 1;
+    }
+
+    @keyframes pulseFlow {
+      to {
+        stroke-dashoffset: -40;
+      }
+    }
+
+    /* Animated floating data packet */
+    .data-packet {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      background: var(--color-alu);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #000;
+      box-shadow: 0 0 15px var(--color-alu);
+      z-index: 10;
+      pointer-events: none;
+      opacity: 0;
+      transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s;
+    }
+
+    /* Section for Storage Blocks (Cache & RAM) */
+    .storage-sections {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 25px;
+    }
+
+    @media (max-width: 768px) {
+      .storage-sections {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .storage-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .storage-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .storage-header .badge {
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 4px 8px;
+      border-radius: 20px;
+      color: var(--text-muted);
+    }
+
+    .grid-container {
+      background: rgba(5, 5, 10, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      min-height: 180px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-content: flex-start;
+      justify-content: flex-start;
+    }
+
+    /* Memory Block Styling */
+    .mem-block {
+      position: relative;
+      width: 65px;
+      height: 65px;
+      background: rgba(20, 20, 35, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      cursor: default;
+    }
+
+    .mem-block .block-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      position: absolute;
+      top: 6px;
+      left: 6px;
+    }
+
+    .mem-block .block-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: 'Fira Code', monospace;
+      color: var(--text-main);
+      margin-top: 10px;
+      max-width: 55px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Eviction Priority Indicator (FIFO/LRU info) */
+    .mem-block .block-meta {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 0.55rem;
+      color: var(--color-alu);
+      font-weight: 500;
+    }
+
+    .mem-block.active {
+      border-color: rgba(0, 255, 136, 0.4);
+      background: rgba(0, 255, 136, 0.04);
+    }
+    
+    .mem-block.active .block-value {
+      color: var(--color-cache);
+    }
+
+    .mem-block.highlight {
+      transform: scale(1.08);
+      border-color: #ffd700;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+      z-index: 5;
+    }
+
+    .mem-block.evicting {
+      transform: scale(0.9);
+      opacity: 0.3;
+      border-color: #ff0055;
+      box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+    }
+
+    /* RAM Block active color theme */
+    .ram-container .mem-block.active {
+      border-color: rgba(255, 170, 0, 0.4);
+      background: rgba(255, 170, 0, 0.04);
+    }
+
+    .ram-container .mem-block.active .block-value {
+      color: var(--color-ram);
+    }
+
+    /* Terminal Console Log */
+    .console-panel {
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 20px;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0b0b16;
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      padding: 10px 18px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .console-header .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-header .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .console-header .dot-r { background: #ff5f56; }
+    .console-header .dot-y { background: #ffbd2e; }
+    .console-header .dot-g { background: #27c93f; }
+
+    .console-title {
+      font-size: 0.8rem;
+      font-family: 'Fira Code', monospace;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .console-clear {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .console-clear:hover {
+      color: var(--text-main);
+    }
+
+    .console-body {
+      background: #05050a;
+      border: 1px solid var(--border-color);
+      border-radius: 0 0 12px 12px;
+      padding: 15px;
+      height: 180px;
+      overflow-y: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #00ff66;
+      scroll-behavior: smooth;
+    }
+
+    .console-line {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .console-line .timestamp {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .console-line .msg {
+      word-break: break-all;
+    }
+
+    .console-line.info .msg { color: #00ffaa; }
+    .console-line.warn .msg { color: #ffbb00; }
+    .console-line.err .msg { color: #ff0055; }
+    .console-line.system .msg { color: #d000ff; }
   </style>
 </head>
 
 <body>
 
-  <h1>CPU - ALU - Cache - RAM Simülasyonu</h1>
-    <!-- İki Sayı Girişi -->
-     <div class="form-container">
-    <div class="selector">
-        <label for="input1">1. Sayı:</label>
-        <input type="number" id="input1">
+  <header>
+    <h1>CPU - ALU - Cache - RAM Simülasyonu</h1>
+    <p class="subtitle">Bellek hiyerarşisini, önbellek isabet (hit)/ıskalama (miss) durumlarını ve yer değiştirme politikalarını izleyin.</p>
+  </header>
+
+  <div class="dashboard">
+    <!-- Configuration Panel -->
+    <div class="panel">
+      <div class="panel-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Kontrol Paneli
+      </div>
+
+      <div class="control-group">
+        <label for="input1">1. Sayı (Giriş A)</label>
+        <input type="number" id="input1" value="12" placeholder="Sayı girin">
       </div>
     
-      <div class="selector">
-        <label for="input2">2. Sayı:</label>
-        <input type="number" id="input2">
+      <div class="control-group">
+        <label for="input2">2. Sayı (Giriş B)</label>
+        <input type="number" id="input2" value="5" placeholder="Sayı girin">
       </div>
 
-  <!-- ALU İşlemi Seçimi -->
-  <div class="selector">
-    <label for="operation">ALU İşlemi Seçin:</label>
-    <select id="operation">
-      <option value="ADD">Toplama</option>
-      <option value="SUB">Çıkarma</option>
-      <option value="MUL">Çarpma</option>
-      <option value="DIV">Bölme</option>
-      <option value="AND">AND</option>
-      <option value="OR">OR</option>
-      <option value="NOT">NOT</option>
-    </select>
-  </div>
-  <!--Ram boyutlandırma-->
-  <div class="selector">
-    <label for="ram-size">RAM Boyutu Seçin:</label>
-    <select id="ram-size">
-      <option value="4" selected>4 Blok</option>
-      <option value="8">8 Blok</option>
-      <option value="12">12 Blok</option>
-      <option value="16">16 Blok</option>
-    </select>
-  </div>
-  
+      <div class="control-group">
+        <label for="operation">ALU İşlemi</label>
+        <select id="operation">
+          <option value="ADD">Toplama (ADD)</option>
+          <option value="SUB">Çıkarma (SUB)</option>
+          <option value="MUL">Çarpma (MUL)</option>
+          <option value="DIV">Bölme (DIV)</option>
+          <option value="AND">Ve (AND)</option>
+          <option value="OR">Veya (OR)</option>
+          <option value="NOT">Değil (NOT - Sadece Giriş A)</option>
+        </select>
+      </div>
 
-  <!-- FIFO / LRU Seçimi -->
-  <div class="selector">
-    <label for="cache-policy">Cache Politikası Seçin:</label>
-    <select id="cache-policy">
-      <option value="FIFO">FIFO</option>
-      <option value="LRU">LRU</option>
-    </select>
-  </div>
+      <div class="control-group">
+        <label for="cache-size">Cache Boyutu</label>
+        <select id="cache-size">
+          <option value="2">2 Blok</option>
+          <option value="4" selected>4 Blok</option>
+          <option value="6">6 Blok</option>
+          <option value="8">8 Blok</option>
+        </select>
+      </div>
 
-  <!-- Başlat Butonu -->
-  <div class="selector">
-    <button id="start-btn">İşlemi Başlat</button>
-  </div>
-</div>
+      <div class="control-group">
+        <label for="ram-size">RAM Boyutu</label>
+        <select id="ram-size">
+          <option value="4">4 Blok</option>
+          <option value="8" selected>8 Blok</option>
+          <option value="12">12 Blok</option>
+          <option value="16">16 Blok</option>
+        </select>
+      </div>
 
-  <!-- Ana İşlem Aşamaları -->
-  <div class="container">
-    <div class="unit" id="cpu">CPU</div>
-    <div class="line">
-      <div class="data" id="data"></div>
+      <div class="control-group">
+        <label for="cache-policy">Cache Tahliye Politikası</label>
+        <select id="cache-policy">
+          <option value="FIFO" selected>FIFO (İlk Giren İlk Çıkar)</option>
+          <option value="LRU">LRU (En Son Kullanılan Çıkar)</option>
+        </select>
+      </div>
+
+      <button id="start-btn" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        İşlemi Başlat
+      </button>
+
+      <div class="auto-controls">
+        <button id="auto-btn" class="btn btn-secondary" style="flex: 1;">
+          Otomatik Döngü
+        </button>
+        <button id="reset-btn" class="btn btn-secondary">
+          Sıfırla
+        </button>
+      </div>
+
+      <div class="speed-slider-container">
+        <div class="speed-slider-label">
+          <span>Döngü Hızı</span>
+          <span id="speed-val">1.5s</span>
+        </div>
+        <input type="range" id="speed-range" class="speed-slider" min="500" max="3000" step="250" value="1500">
+      </div>
     </div>
-    <div class="unit" id="alu">ALU</div>
-    <div class="line"></div>
-    <div class="unit" id="cache">Cache</div>
-    <div class="line"></div>
-    <div class="unit" id="ram">RAM</div>
-  </div>
 
-  <!-- Durum Bilgileri -->
-  <div class="status-text" id="status">Başlıyor...</div>
-  <div class="alu-ops" id="alu-ops">ALU İşlemi Bekleniyor...</div>
+    <!-- Visual Simulation Flow -->
+    <div class="pipeline-panel">
+      <div class="panel" style="flex: 1;">
+        <div class="panel-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          Sistem Veri Yolu (Hardware Pipeline)
+        </div>
+        
+        <div class="motherboard" id="motherboard">
+          <!-- Dynamic Connector lines SVG -->
+          <svg class="connector-svg" id="connector-svg">
+            <path class="connector-line" id="line-cpu-alu" d="" />
+            <path class="connector-pulse" id="pulse-cpu-alu" d="" />
+            
+            <path class="connector-line" id="line-alu-cache" d="" />
+            <path class="connector-pulse" id="pulse-alu-cache" d="" />
+            
+            <path class="connector-line" id="line-cache-ram" d="" />
+            <path class="connector-pulse" id="pulse-cache-ram" d="" />
+          </svg>
 
-  <!-- Cache Blokları -->
-  <div class="section">
-    <h2>Cache Blokları</h2>
-    <div class="cache-blocks" id="cache-blocks">
-      <div class="block">A</div>
-      <div class="block">B</div>
-      <div class="block">C</div>
-      <div class="block">D</div>
+          <!-- Floating Data Packet -->
+          <div class="data-packet" id="data-packet">12</div>
+
+          <!-- Component units -->
+          <div class="hardware-unit" id="cpu">
+            <span class="unit-name">CPU</span>
+            <span class="unit-val" id="cpu-val">IDLE</span>
+          </div>
+
+          <div class="hardware-unit" id="alu">
+            <span class="unit-name">ALU</span>
+            <span class="unit-val" id="alu-val">IDLE</span>
+          </div>
+
+          <div class="hardware-unit" id="cache">
+            <span class="unit-name">Cache</span>
+            <span class="unit-val" id="cache-val">Hit/Miss</span>
+          </div>
+
+          <div class="hardware-unit" id="ram">
+            <span class="unit-name">RAM</span>
+            <span class="unit-val" id="ram-val">R/W</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- RAM Blokları -->
-  <div class="section">
-    <h2>RAM Blokları</h2>
-    <div class="ram-blocks" id="ram-blocks">
-      <div class="block">1</div>
-      <div class="block">2</div>
-      <div class="block">3</div>
-      <div class="block">4</div>
+  <!-- Storage Layout Details -->
+  <div class="storage-sections">
+    <!-- Cache Memory Panel -->
+    <div class="panel">
+      <div class="storage-header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-cache);"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Cache Memory
+        </h2>
+        <span class="badge" id="cache-policy-badge">FIFO</span>
+      </div>
+      <div class="grid-container cache-container" id="cache-blocks">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- RAM Memory Panel -->
+    <div class="panel">
+      <div class="storage-header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-ram);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+          RAM (Main Memory)
+        </h2>
+        <span class="badge" id="ram-size-badge">8 Blok</span>
+      </div>
+      <div class="grid-container ram-container" id="ram-blocks">
+        <!-- Rendered dynamically -->
+      </div>
     </div>
   </div>
 
-<script src="script.js"></script>
+  <!-- Live Terminal Console -->
+  <div class="console-panel">
+    <div class="console-header">
+      <div class="dots">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="console-title">SIMULATOR_OUTPUT_LOGS</div>
+      <div class="console-clear" id="console-clear">Temizle</div>
+    </div>
+    <div class="console-body" id="console-body">
+      <!-- Logs printed here -->
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 
 </body>
 </html>
